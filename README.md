@@ -1,14 +1,12 @@
 # WSL Hello sudo
 
 "WSL Hello sudo" is a Linux PAM module and companion Windows CLI apps that realize `sudo` by
-biometric login of [Windows Hello](https://www.microsoft.com/en-us/windows/windows-hello) on Windows Subsystem for Linux (WSL).
-This PAM module allows you to authenticate `sudo` via face recognition, fingerprint authentication, and of couse machine-local PIN.  
+biometric login of [Windows Hello](https://www.microsoft.com/en-us/windows/windows-hello) on Windows Subsystem for Linux (WSL).  
+This PAM module allows you to authenticate `sudo` via face recognition, fingerprint authentication, and of couse machine-local PIN.
+It runs in both WSL and WSL 2.
 
-The Linux PAM module is written in Rust, and Windows CLI apps are written in C#.
-
-__Warning__
-
-This is an experimental product. There is no warranty at all.
+The Linux PAM module is written in Rust, and Windows CLI apps are written in C#.  
+Please use it at your own risk. There is no warranty.
 
 ![demo](https://github.com/nullpo-head/WSL-Hello-sudo/blob/master/demo.gif)
 
@@ -24,7 +22,7 @@ Please download the latest release package from GitHub Release and unpack it.
 Run `install.sh` inside the directory, and follow the instruction of `install.sh`
 
 ```ShellSession
-$ wget https://github.com/nullpo-head/WSL-Hello-sudo/releases/download/v1.0.0/release.tar.gz
+$ wget http://github.com/nullpo-head/WSL-Hello-sudo/releases/latest/download/release.tar.gz
 $ tar xvf release.tar.gz
 $ cd release
 $ ./install.sh
@@ -41,7 +39,8 @@ Although you don't have to care about the detailed installation process,
 ### Configuration
 
 "WSL Hello sudo" is not a fork of `sudo` but a PAM module. So please configure `/etc/pam.d/sudo` to make it effective.  
-Add `auth sufficient pam_wsl_hello.so` to the top line of your `/etc/pam.d/sudo` like the following example
+I strongly recommend to set password of root first so that you can switch to it by `su`, in case you make some typo in the config of `sudo`.  
+Add `auth sufficient pam_wsl_hello.so` to the top line of your `/etc/pam.d/sudo` like the following example  
 
 ```
 #%PAM-1.0
@@ -54,12 +53,17 @@ session    required   pam_env.so readenv=1 envfile=/etc/default/locale user_read
 @include common-session-noninteractive
 ```
 Even if you fail to authenticate via Windows Hello, `sudo` moves on to the regular password authentication by this setting with `sufficient`.  
-__However, I strongly recommend to set password to root user to allow you to login as root via `su` to prevent unexpected emergency situation.__
 
 Other applications that authenticate users such as `su` can also utilize Windows Hello by this module.  
-Even so, __I strongly recommend you to make either `sudo` or `su` free from this module for the above reason__
+Even so, __I strongly recommend you to make either `sudo` or `su` free from this module to prevent from being locked out__
 
 ## Troubleshooting
+
+### Windows Hello window appears in background.
+
+The Windows Hello dialog sometimes appears in background.
+In some cases, it even fails to recognize your face with some weird error message.
+It seems a bug of Windows API. In that case, restarting Windows a couple of times might solve the problem.
 
 ### "Windows Hello is not invoked! `sudo` just prompts password!"
 
@@ -80,7 +84,8 @@ The Linux PAM module of "WSL Hello sudo" is written in Rust, and the Windows CLI
 So, `cargo` and Visual Studio are required to build it.
 
 Before building "WSL Hello sudo", add the path to `MSBuild.exe` to `PATH` environment variable of __`bash` on WSL__, not Windows.  
-(If you build Windows CLI apps with your Visual Studio GUI, you can ignore that)
+If you build Windows CLI apps with your Visual Studio GUI, you can ignore that.
+In my environment, MSBuild lives in `/mnt/c/Program Files (x86)/Microsoft Visual Studio/2019/Community/MSBuild/Current/Bin/`
 
 To build "WSL Hello sudo", just run `make`.
 
@@ -91,13 +96,10 @@ $ make
 ```
 It invokes `cargo` and `MSBuild.exe` properly.
 
-## Known bug
-
-The Windows Hello dialog appears many times with meaningless message of "PIN incorrect" even after the face recognition succeeds? This seems to be a bug of Windows Hello API. It could be fixed in future Windows builds.
 
 ## Internals
 
-Windows Hello maintains RSA key-pairs for each Windows user in its TMP hardware, and tells success of authentication by signing given contents by the private key.
+Windows Hello maintains RSA key-pairs for each Windows user in its TPM hardware, and tells success of authentication by signing given contents by the private key.
 To utilize its API, "WSL Hello sudo" contains small Windows CLI apps that return public key and singned signature of given content.
 On the other hand, the PAM module of "WSL Hello sudo" remembers the public keys of each Windows user who corresponds to each Linux user.
 So, the PAM module authenticates the given Linux user by the following process.
